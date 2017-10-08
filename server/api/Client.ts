@@ -17,6 +17,15 @@ interface AddURLsData {
   tags?: string[];
 }
 
+
+interface AddFilesOptions {
+  files: Buffer[];
+  path: string;
+  isBasePath: boolean;
+  start: boolean;
+  tags: string[]
+}
+
 /**
  * Represents a rTorrent client
  */
@@ -44,7 +53,8 @@ class Client {
    *    the files will be named by the dirname of the path. For single torrents,
    *    it doesn't changes anything. See https://goo.gl/ybsqAX
    * @param {string[]} data.tags an array of tags to add to the new torrents
-   * @param {boolean}  start specifies whether it should start on load
+   * @param {boolean}  data.start specifies whether it should start on load
+   * @return a promise
    */
   addUrls (data: AddURLsData) {
     return new Promise((resolve, reject) => {
@@ -67,6 +77,55 @@ class Client {
       request.send();
     });
   }
-
-  addFiles ()
+  /**
+   * add files buffers to rtorrent
+   * @param {Object}   data 
+   * @param {Buffer[]} data.files an array of magnets to add to rtorrent
+   * @param {string}   data.destination path to destination folder
+   * @param {boolean}  data.isBasePath for multi torrents, if true 
+   *    the folder which would usually contain the torrent name and contain
+   *    the files will be named by the dirname of the path. For single torrents,
+   *    it doesn't changes anything. See https://goo.gl/ybsqAX
+   * @param {string[]} data.tags an array of tags to add to the new torrents
+   * @param {boolean}  data.start specifies whether it should start on load
+   * @return a promise
+   */
+  addFiles (opts: AddFilesOptions) {
+    return new Promise((resolve, reject) => { 
+      const files = opts.files;
+      const path = opts.destination;
+      const isBasePath = opts.isBasePath;
+      const request = new ClientRequest(this.opts);
+      const start = opts.start;
+      const tags = opts.tags;
+  
+      if (!Array.isArray(tags)) {
+        tags = tags.split(',');
+      }
+  
+      request.createDirectory({path});
+      request.send();
+  
+      // Each torrent is sent individually because rTorrent accepts a total
+      // filesize of 524 kilobytes or less. This allows the user to send many
+      // torrent files reliably.
+      files.forEach((file, index) => {
+        file.originalname = encodeURIComponent(file.originalname);
+  
+        let fileRequest = new ClientRequest();
+        fileRequest.addFiles({files: file, path, isBasePath, start, tags});
+  
+        // Set the callback for only the last request.
+        if (index === files.length - 1) {
+          fileRequest.onComplete((response, error) => {
+            // torrentService.fetchTorrentList();
+            if (err) { return reject(err); }
+            resolve(response);
+          });
+        }
+  
+        fileRequest.send();
+      });
+    });
+  }
 }
