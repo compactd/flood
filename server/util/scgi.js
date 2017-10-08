@@ -4,7 +4,6 @@ const Deserializer = require('xmlrpc/lib/deserializer');
 const net = require('net');
 const Serializer = require('xmlrpc/lib/serializer');
 
-const config = require('../../config');
 
 const nullChar = String.fromCharCode(0);
 
@@ -24,11 +23,11 @@ const sendDefferedMethodCall = () => {
   }
 };
 
-const sendMethodCall = (methodName, parameters) => {
+const sendMethodCall = (methodName, parameters, opts) => {
   return new Promise((resolve, reject) => {
-    const connectMethod = config.scgi.socket
-      ? {path: config.scgi.socketPath}
-      : {port: config.scgi.port, host: config.scgi.host};
+    const connectMethod = opts.socket
+      ? {path: opts.socketPath}
+      : {port: opts.port, host: opts.host};
 
     const deserializer = new Deserializer('utf8');
     const stream = net.connect(connectMethod);
@@ -74,7 +73,7 @@ const sendMethodCall = (methodName, parameters) => {
 };
 
 module.exports = {
-  methodCall(methodName, parameters) {
+  methodCall(methodName, parameters, opts) {
     // We only allow one request at a time.
     if (isRequestPending) {
       return new Promise((resolve, reject) => {
@@ -82,7 +81,7 @@ module.exports = {
       });
     } else {
       isRequestPending = true;
-      return sendMethodCall(methodName, parameters);
+      return sendMethodCall(methodName, parameters, opts);
     }
   }
 };
