@@ -45,7 +45,7 @@ const sendMethodCall = (methodName, parameters, opts) => {
     }, 0);
 
     stream.write(`${headerLength}:${headerItems.join('')},${xml}`);
-
+    console.log(xml);
     deserializer.deserializeMethodResponse(stream, (error, response) => {
       isRequestPending = false;
 
@@ -74,6 +74,8 @@ const sendMethodCall = (methodName, parameters, opts) => {
 
 module.exports = {
   methodCall(methodName, parameters, opts) {
+    console.log(methodName, parameters, opts);
+    console.log(JSON.stringify({methodName, parameters, opts}, null, 2))
     // We only allow one request at a time.
     if (isRequestPending) {
       return new Promise((resolve, reject) => {

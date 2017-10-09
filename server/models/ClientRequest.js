@@ -15,8 +15,9 @@ let scgi = require('../util/scgi');
 let stringUtil = require('../../shared/util/stringUtil');
 
 class ClientRequest {
-  constructor(options) {
+  constructor(options, methodCall = scgi.methodCall) {
     options = options || {};
+    this.methodCall = methodCall;
 
     this.onCompleteFn = null;
     this.postProcessFn = null;
@@ -33,6 +34,7 @@ class ClientRequest {
     if (options.name) {
       this.name = options.name;
     }
+    this.opts = options;
   }
 
   addTagsToRequest(tagsArr, requestParameters) {
@@ -108,7 +110,7 @@ class ClientRequest {
     let handleSuccess = this.handleSuccess.bind(this);
     let handleError = this.handleError.bind(this);
 
-    scgi.methodCall('system.multicall', [this.requests])
+    this.methodCall('system.multicall', [this.requests], this.opts)
       .then(handleSuccess)
       .catch(handleError);
   }
@@ -138,7 +140,9 @@ class ClientRequest {
       parameters = this.addTagsToRequest(tagsArr, parameters);
 
       parameters.push(`d.custom.set=x-filename,${file.originalname}`);
-      parameters.push(`d.custom.set=addtime,${timeAdded}`);
+      if (options.setAddTime) {
+        parameters.push(`d.custom.set=addtime,${timeAdded}`);
+      }
 
       // The start value is a string because it was appended to a FormData
       // object.
@@ -171,8 +175,9 @@ class ClientRequest {
       }
 
       parameters = this.addTagsToRequest(tagsArr, parameters);
-
-      parameters.push(`d.custom.set=addtime,${timeAdded}`);
+      if (options.setAddTime) {
+        parameters.push(`d.custom.set=addtime,${timeAdded}`);
+      }
 
       if (!start) {
         methodCall = 'load.normal';
@@ -190,9 +195,9 @@ class ClientRequest {
     });
   }
 
-  createDirectory(options) {
+  createDirectory(options, mkdir = mkdirp) {
     if (options.path) {
-      mkdirp(options.path, (error) => {
+      mkdir(options.path, (error) => {
         if (error) {
           console.trace('Error creating directory.', error);
         }

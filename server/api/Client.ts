@@ -1,6 +1,55 @@
 const ClientRequest = require('../models/ClientRequest') as any;
 
-type ClientOptions = {
+import * as mkdirp from 'mkdirp';
+
+
+type Peer = {
+  index: number;
+  address: string;
+  completedPercent: number;
+  clientVersion: string;
+  downloadRate: number;
+  downloadTotal: number;
+  uploadRate: number;
+  uploadTotal: number;
+  id: string;
+  peerRate: number;
+  peerTotal: number;
+  isEncrypted: boolean;
+  country: string;
+}
+
+type Tracker = {
+  index: number;
+  group: number;
+  url: string;
+  minInterval: number;
+  normalInterval: number;
+  type: number;
+}
+type TrackerFile = {
+  index: number;
+  path: string;
+  priority: number;
+  sizeBytes: number;
+  filename: string;
+  percentComplete: number;
+}
+
+type TorrentDetails = {
+  peers: Peer[];
+  trackers: Tracker[];
+  fileTree: {
+    files: TrackerFile[];
+    directories: {
+       [name: string]: {
+         files: TrackerFile[]
+       }
+    }
+  }
+}
+
+export type ClientOptions = {
   port: number;
   host: string;
   socket?: false;
@@ -9,28 +58,36 @@ type ClientOptions = {
   socketPath: string;
 }
 
-interface AddURLsData {
+export interface AddURLsData {
   urls: string[];
   destination?: string;
   start?: boolean;
   isBasePath?: boolean;
   tags?: string[];
+  setAddTime?: boolean;
 }
 
 
-interface AddFilesOptions {
-  files: Buffer[];
-  path: string;
-  isBasePath: boolean;
-  start: boolean;
-  tags: string[]
+export interface AddFilesOptions {
+  files: {
+    originalname: string;
+    buffer: Buffer;
+  }[];
+  destination: string;
+  isBasePath?: boolean;
+  start?: boolean;
+  tags?: string[] | string;
+  setAddTime?: boolean;
 }
+
+export type MethodCall = (methodName: string, params: string[], opts: {host: string, port: number}) => Promise<any>;
 
 /**
  * Represents a rTorrent client
  */
-class Client {
-  opts: ClientOptions;
+export class Client {
+  private methodCall: MethodCall;
+  private opts: ClientOptions;
   /**
    * creates a new client instance
    * @param {Object}  opts options to setup rtorrent connection
@@ -39,8 +96,9 @@ class Client {
    * @param {boolean} [opts.socket] use a socket instead of a server
    * @param {string}  [opts.socketPath] specifies rtorrent socket path
    */
-  constructor (opts: ClientOptions) {
+  constructor (opts: ClientOptions, methodCall: MethodCall) {
     this.opts = opts;
+    this.methodCall = methodCall;
   }
 
   /**
@@ -54,9 +112,10 @@ class Client {
    *    it doesn't changes anything. See https://goo.gl/ybsqAX
    * @param {string[]} data.tags an array of tags to add to the new torrents
    * @param {boolean}  data.start specifies whether it should start on load
+   * @param {boolean}  data.setAddTime whether to include d.custom.set=addtime,
    * @return a promise
    */
-  addUrls (data: AddURLsData) {
+  addUrls (data: AddURLsData, mkdir?: typeof mkdirp) {
     return new Promise((resolve, reject) => {
 
       const urls = data.urls;
@@ -64,10 +123,11 @@ class Client {
       const isBasePath = data.isBasePath;
       const start = data.start;
       const tags = data.tags;
-      const request = new ClientRequest(this.opts);
+      const setAddTime = data.setAddTime !== false;
+      const request = new ClientRequest(this.opts, this.methodCall);
   
-      request.createDirectory({path});
-      request.addURLs({urls, path, isBasePath, start, tags});
+      request.createDirectory({path}, mkdir);
+      request.addURLs({urls, path, isBasePath, start, tags, setAddTime});
       request.onComplete((data: any, err: any) => {
         if (err) {
           return reject(err);
@@ -80,7 +140,7 @@ class Client {
   /**
    * add files buffers to rtorrent
    * @param {Object}   data 
-   * @param {Buffer[]} data.files an array of magnets to add to rtorrent
+   * @param {(Buffer | string)[]} data.files an array of buffers or base64 string
    * @param {string}   data.destination path to destination folder
    * @param {boolean}  data.isBasePath for multi torrents, if true 
    *    the folder which would usually contain the torrent name and contain
@@ -88,6 +148,7 @@ class Client {
    *    it doesn't changes anything. See https://goo.gl/ybsqAX
    * @param {string[]} data.tags an array of tags to add to the new torrents
    * @param {boolean}  data.start specifies whether it should start on load
+   * @param {boolean}  data.setAddTime whether to include d.custom.set=addtime,
    * @return a promise
    */
   addFiles (opts: AddFilesOptions) {
@@ -96,8 +157,10 @@ class Client {
       const path = opts.destination;
       const isBasePath = opts.isBasePath;
       const request = new ClientRequest(this.opts);
-      const start = opts.start;
-      const tags = opts.tags;
+      const start = opts.start !== false;
+      const setAddTime = opts.setAddTime !== false;
+
+      let tags = opts.tags || [];
   
       if (!Array.isArray(tags)) {
         tags = tags.split(',');
@@ -111,13 +174,12 @@ class Client {
       // torrent files reliably.
       files.forEach((file, index) => {
         file.originalname = encodeURIComponent(file.originalname);
-  
         let fileRequest = new ClientRequest();
-        fileRequest.addFiles({files: file, path, isBasePath, start, tags});
+        fileRequest.addFiles({files: file, path, isBasePath, start, tags, setAddTime});
   
         // Set the callback for only the last request.
         if (index === files.length - 1) {
-          fileRequest.onComplete((response, error) => {
+          fileRequest.onComplete((response: any, err: any) => {
             // torrentService.fetchTorrentList();
             if (err) { return reject(err); }
             resolve(response);
@@ -127,5 +189,17 @@ class Client {
         fileRequest.send();
       });
     });
+  }
+  getTorrent () {
+
+  }
+}
+
+class Torrent {
+  private opts: ClientOptions;
+  private hash: string;
+  constructor (opts: ClientOptions, hash: string) {
+    this.opts = opts;
+    this.hash = hash;
   }
 }

@@ -1,0 +1,20 @@
+{
+  "methodName": "system.multicall",
+  "parameters": [
+    [
+      {
+        "methodName": "load.normal",
+        "params": [
+          "",
+          "magnet:foo/bar",
+          "d.directory.set=\"/home/foo\""
+        ]
+      }
+    ]
+  ],
+  "response": [[0]],
+  "opts": {
+    "host": "localhost",
+    "port": 10420
+  }
+}

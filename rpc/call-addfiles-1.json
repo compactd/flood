@@ -1,0 +1,18 @@
+{
+  "methodName": "system.multicall",
+  "parameters": [
+    [
+      {
+        "methodName": "load.raw_start",
+        "params": [
+          "",
+          "content-buffer",
+          "d.directory.set=\"/home/odahviing/torrents\"",
+          "d.custom.set=x-filename,foo%20bar%20test"
+        ]
+      }
+    ]
+  ],
+  "opts": {},
+  "response": [[0]]
+}
