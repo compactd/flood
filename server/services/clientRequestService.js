@@ -15,9 +15,9 @@ const fileListMethodCallConfig = methodCallUtil.getMethodCallConfigFromPropMap(
 );
 
 class ClientRequestService extends EventEmitter {
-  constructor() {
+  constructor(opts) {
     super(...arguments);
-
+    this.opts = opts;
     this.torrentListReducers = [];
   }
 
@@ -80,7 +80,7 @@ class ClientRequestService extends EventEmitter {
     );
 
     return scgi
-      .methodCall('system.multicall', [methodCalls])
+      .methodCall('system.multicall', [methodCalls], this.opts)
       .then((response) => {
         if (options.deleteData) {
           const torrentCount = options.hashes.length;
@@ -144,7 +144,7 @@ class ClientRequestService extends EventEmitter {
    */
   fetchTorrentList(options) {
     return scgi
-      .methodCall('d.multicall2', ['', 'main'].concat(options.methodCalls))
+      .methodCall('d.multicall2', ['', 'main'].concat(options.methodCalls), opts)
       .then(torrents => this.processTorrentListResponse(torrents, options))
       .catch(clientError => this.processClientError(clientError));
   }
@@ -255,4 +255,4 @@ class ClientRequestService extends EventEmitter {
   }
 }
 
-module.exports = new ClientRequestService();
+module.exports = ClientRequestService;

@@ -2,7 +2,7 @@ const deepEqual = require('deep-equal');
 const EventEmitter = require('events');
 
 const config = require('../../config.js');
-const clientRequestService = require('./clientRequestService.js');
+const ClientRequestService = require('./clientRequestService.js');
 const clientRequestServiceEvents = require('../constants/clientRequestServiceEvents');
 const formatUtil = require('../../shared/util/formatUtil');
 const methodCallUtil = require('../util/methodCallUtil');
@@ -16,9 +16,9 @@ const torrentListMethodCallConfig = methodCallUtil
   .getMethodCallConfigFromPropMap(torrentListPropMap);
 
 class TorrentService extends EventEmitter {
-  constructor() {
+  constructor(opts) {
     super(...arguments);
-
+    this.clientRequestService = new ClientRequestService(opts);
     this.errorCount = 0;
     this.pollTimeout = null;
     this.torrentListSummary = {torrents: {}};
@@ -27,27 +27,27 @@ class TorrentService extends EventEmitter {
     this.handleTorrentProcessed = this.handleTorrentProcessed.bind(this);
     this.handleTorrentsRemoved = this.handleTorrentsRemoved.bind(this);
 
-    clientRequestService.addTorrentListReducer({
+    this.clientRequestService.addTorrentListReducer({
       key: 'status',
       reduce: this.getTorrentStatusFromDetails
     });
 
-    clientRequestService.addTorrentListReducer({
+    this.clientRequestService.addTorrentListReducer({
       key: 'percentComplete',
       reduce: this.getTorrentPercentCompleteFromDetails
     });
 
-    clientRequestService.addTorrentListReducer({
+    this.clientRequestService.addTorrentListReducer({
       key: 'eta',
       reduce: this.getTorrentETAFromDetails
     });
 
-    clientRequestService.on(
+    this.clientRequestService.on(
       clientRequestServiceEvents.PROCESS_TORRENT,
       this.handleTorrentProcessed
     );
 
-    clientRequestService.on(
+    this.clientRequestService.on(
       clientRequestServiceEvents.TORRENTS_REMOVED,
       this.handleTorrentsRemoved
     );
@@ -322,4 +322,4 @@ class TorrentService extends EventEmitter {
   }
 }
 
-module.exports = new TorrentService();
+module.exports = TorrentService;
